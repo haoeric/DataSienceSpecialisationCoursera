@@ -1,0 +1,127 @@
+---
+title: "Activity monitoring data analysis"
+author: "haoeric"
+date: "9 July, 2014"
+output: html_document
+---
+        
+This is an R Markdown document for my solution to the assignment 1 of course **Reproduciable Research** on Coursera
+      
+## Loading and preprocessing the data
+Let's take a first look of the dataset
+```{r read and orginize data}
+data_path = "/Users/chenhao/GitProject/RepData_PeerAssessment1/"
+activity_data = read.csv(paste(data_path,"activity.csv", sep=""), 
+                         stringsAsFactors = F)
+# format the data and transform NA to 0
+activity_data$date <- as.Date(activity_data$date, "%Y-%m-%d")
+#activity_data$steps[is.na(activity_data$steps)] = 0
+head(activity_data)
+```
+         
+## What is mean total number of steps taken per day?
+split the data by date and do analysis of steps on date
+```{r mean steps analysis}
+# organize the date by days
+sum_steps_per_day <- aggregate(steps ~ date, data = activity_data, sum)
+mean_steps = as.integer(mean(sum_steps_per_day$step, na.rm = T))
+median_steps = as.integer(median(sum_steps_per_day$step, na.rm = T))
+# plot the histogram of the total number of steps taken each day
+hist(sum_steps_per_day$steps, 
+     main="Histogram of The Total Number of Steps Taken Each Day",
+     xlab = "total number of steps taken per day"
+     ) 
+```   
+        
+The mean total number of steps taken per day was `r mean_steps` , and 
+The median total number of steps taken per day was `r median_steps`.
+
+## What is the average daily activity pattern?
+split the data by interval and do analysis of steps on interval
+```{r average daily activity pattern}
+# organize the data by daily time series
+daily_steps <- aggregate(steps ~ interval, data = activity_data, mean)
+plot(daily_steps$interval, 
+     daily_steps$steps,
+     type = "l",
+     main = "Average Number of Steps Taken Each 5 Minutes Interval",
+     xlab = "time interval",
+     ylab = "average steps taken")
+
+abline(v = daily_steps[daily_steps$steps == max(daily_steps$steps), 1], 
+       col = "red")
+text(x = daily_steps[daily_steps$steps == max(daily_steps$steps),1],
+     y = max(daily_steps$steps),
+     labels= max(daily_steps$steps),
+     cex= 0.7, offset = 10)
+
+maximun_activity_pattern  = daily_steps[daily_steps$steps == max(daily_steps$steps),1]
+```
+       
+the **`r maximun_activity_pattern`th** 5-minute interval contains the maximum number of steps on average across all the days in the dataset.
+
+## Imputing missing values
+```{r deal with missing value}
+# check the number of NA values
+NA_num = sum(is.na(activity_data$steps))
+
+# fill the missing values with mean steps of that interval
+new_activity_data <- activity_data
+for (i in 1:length(new_activity_data$steps)) {
+       if (is.na(new_activity_data$steps[i])) {
+               mean_activity <- daily_steps[daily_steps$interval == new_activity_data$interval[i], 2]
+               new_activity_data$steps[i] <- mean_activity }        
+}
+
+# Make a histogram of the total number of steps taken each day
+new_sum_steps_per_day <- aggregate(steps ~ date, data = new_activity_data, sum)
+new_mean_steps = as.integer(mean(new_sum_steps_per_day$step, na.rm = T))
+new_median_steps = as.integer(median(new_sum_steps_per_day$step, na.rm = T))
+# plot the histogram of the total number of steps taken each day
+hist(new_sum_steps_per_day$steps, 
+     main="Histogram of The Total Number of Steps Taken Each Day with filling of missing values",
+     xlab = "total number of steps taken per day"
+     ) 
+```    
+       
+After repalcing `r NA_num` missing values with mean activity of that interval,
+The mean total number of steps taken per day was `r new_mean_steps` , and 
+The median total number of steps taken per day was `r new_median_steps`. So we find that the mean value remain the same while the median increased a little.
+
+## Are there differences in activity patterns between weekdays and weekends?
+Let's split the data by week_label and time interval, then calculate the mean steps for each
+combine of weeklabel and time interval, using lattice to give a plot to visually show the answer.
+```{r week labelled analysis}
+weekdays = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday")
+weekends = c("Saturday", "Sunday")
+
+# add week labels to the dataset
+week_label = vector()
+new_activity_data$date <- weekdays(new_activity_data$date)
+for (i in 1:length(new_activity_data$date)){
+        if (new_activity_data$date[i] %in% weekdays){
+                week_label = c(week_label, "weekday")  }
+        else{
+                week_label = c(week_label, "weekend")  }
+}
+new_activity_data <- transform( new_activity_data, week_labels = week_label)
+
+# split the data by week label and interval then calcualte the mean steps, and plot
+mean_steps_per_interval <- aggregate(steps ~ interval + week_labels, 
+                                     data = new_activity_data, mean)
+library(lattice)
+xyplot(steps ~ interval|week_labels, 
+       data = mean_steps_per_interval,
+       type = "l",
+       xlab = "Interval",
+       ylab = "Number of steps",
+       layout=c(1,2))
+```
+      
+We can see that people get more activity on weekends, aha, due to more avaliable time. 
+
+
+
+
+
+
